@@ -1,0 +1,15 @@
+(library
+ (name AaaU)
+ (public_name AaaU)
+ (flags (:standard -warn-error -A))
+ (libraries
+  lwt lwt.unix
+  logs logs.lwt
+  fmt
+  yojson
+  uuidm
+  mtime
+  mtime.clock.os
+  cstruct
+  unix)
+ (preprocess (pps lwt_ppx)))
