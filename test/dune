@@ -1,3 +1,55 @@
 (test
- (name test_AaaU)
+ (name test_pty_open_close)
+ (libraries AaaU))
+
+(test
+ (name test_pty_error_handling)
+ (libraries AaaU))
+
+(test
+ (name test_pty_no_exceptions)
+ (libraries AaaU))
+
+(test
+ (name test_escape_sequence_passthrough)
+ (libraries AaaU))
+
+(test
+ (name test_terminal_size)
+ (libraries AaaU))
+
+(test
+ (name test_pty_resize)
+ (libraries AaaU))
+
+(test
+ (name test_controlling_terminal)
+ (libraries AaaU))
+
+(test
+ (name test_concurrent_input)
+ (libraries AaaU))
+
+(test
+ (name test_process_group)
+ (libraries AaaU))
+
+(test
+ (name test_agent_cleanup)
+ (libraries AaaU))
+
+(test
+ (name test_check_program)
+ (libraries AaaU))
+
+(test
+ (name test_check_program_command)
+ (libraries AaaU))
+
+(test
+ (name test_fork_agent_terminal_size)
+ (libraries AaaU))
+
+(test
+ (name test_terminal_echo)
  (libraries AaaU))
