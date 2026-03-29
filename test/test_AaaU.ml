@@ -344,6 +344,10 @@ let test_agent_cleanup () =
 (* Test program existence check *)
 let test_check_program () =
   (* Internal test via fork_agent behavior *)
+  let user = 
+    try Unix.getlogin ()
+    with _ -> Unix.getenv "USER"
+  in
   let result = 
     if not (has_pty_support ()) then
       true
@@ -352,7 +356,7 @@ let test_check_program () =
       | Error _ -> true  (* Can't test without PTY *)
       | Ok (pty, slave) ->
           (* Try to fork with non-existent program *)
-          match Pty.fork_agent ~slave ~user:(Unix.getlogin ()) 
+          match Pty.fork_agent ~slave ~user 
                   ~program:"/nonexistent/program/12345" ~args:[] ~env:[] ~rows:24 ~cols:80 with
           | Error msg when String.starts_with ~prefix:"Program not found" msg ->
               let () = Lwt_main.run (Pty.close pty) in

@@ -146,6 +146,11 @@ let configure_slave fd =
 (* Fork and switch to user *)
 let fork_agent ~slave ~user ~program ~args ~env ~rows ~cols =
   try
+    (* Check if program exists using shell's command -v (works for PATH lookup and full paths) *)
+    let status = Sys.command (Printf.sprintf "command -v %s >/dev/null 2>&1" program) in
+    if status <> 0 then
+      raise (Failure (Printf.sprintf "Program not found: %s" program));
+    
     let slave_fd = Unix.openfile slave [Unix.O_RDWR] 0 in
 
     (* Set terminal size before fork *)
@@ -217,6 +222,8 @@ let fork_agent ~slave ~user ~program ~args ~env ~rows ~cols =
   with
   | Unix.Unix_error (err, fn, arg) ->
     Error (Printf.sprintf "Fork error in %s(%s): %s" fn arg (Unix.error_message err))
+  | Failure msg ->
+    Error msg
   | e -> Error (Printf.sprintf "Fork error: %s" (Printexc.to_string e))
 
 (* Get or create Lwt file descriptor with non-blocking mode *)
