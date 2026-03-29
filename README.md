@@ -76,7 +76,7 @@ dune build
 
 ```bash
 sudo cp _build/install/default/bin/aaau-server /usr/local/bin/
-sudo cp _build/install/default/bin/aaau-client /usr/local/bin/
+sudo cp _build/install/default/bin/aaau /usr/local/bin/
 ```
 
 ## Setup
@@ -89,7 +89,7 @@ sudo aaau-server init
 
 # The init command creates:
 # - User: agent
-# - Group: agent  
+# - Group: agent
 # - Directories: /var/run/aaau, /var/log/aaau
 ```
 
@@ -168,13 +168,13 @@ Options:
 
 ```bash
 # Create new session
-aaau-client -s /var/run/aaau/server.sock
+aaau -s /var/run/aaau/server.sock
 
 # Join existing session
-aaau-client -s /var/run/aaau/server.sock -n <session-id>
+aaau -s /var/run/aaau/server.sock -n <session-id>
 
 # Read-only mode (observe only)
-aaau-client -s /var/run/aaau/server.sock -n <session-id> -r
+aaau -s /var/run/aaau/server.sock -n <session-id> -r
 ```
 
 ## Protocol
@@ -210,15 +210,15 @@ open Lwt.Syntax
 
 let () =
   let audit = AaaU.Audit.create ~log_dir:"/var/log/aaau" in
-  let* result = AaaU.Session.create 
+  let* result = AaaU.Session.create
     ~session_id:"sess-123"
-    ~creator:"operator" 
-    ~audit 
+    ~creator:"operator"
+    ~audit
   in
   match result with
-  | Ok session -> 
+  | Ok session ->
       Printf.printf "Session created: %s\n" (AaaU.Session.get_id session)
-  | Error e -> 
+  | Error e ->
       Printf.eprintf "Error: %s\n" e
 ```
 
@@ -274,7 +274,7 @@ lib/
 
 bin/
 ├── server.ml        # aaau-server executable
-└── client.ml        # aaau-client executable
+└── client.ml        # aaau executable
 ```
 
 ## Comparison with Alternatives
