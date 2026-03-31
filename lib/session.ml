@@ -9,7 +9,6 @@ module Lwt_queue = struct
     queue : 'a Queue.t;
     condition : unit Lwt_condition.t;
     lock : Lwt_mutex.t;
-    mutable item : 'a option;
   }
 
   let create () =
@@ -17,7 +16,6 @@ module Lwt_queue = struct
       queue = Queue.create ();
       condition = Lwt_condition.create ();
       lock = Lwt_mutex.create ();
-      item = None;
     }
 
   let push item t =
@@ -51,8 +49,6 @@ type client = {
 
 type session = {
   session_id : string;
-  creator : string;
-  created_at : float;
   audit : Audit.t;
 
   (* PTY *)
@@ -234,7 +230,7 @@ let rec broadcast_loop (t : session) =
       ) else
         broadcast_loop t
 
-let create ~session_id ~creator ~agent_user ?(program="/bin/bash") ?(args=["-i"]) ~rows ~cols ~audit =
+let create ~session_id ~creator ~agent_user ~program ~args ~rows ~cols ~audit =
   let* () = Logs_lwt.info (fun m -> m "Creating session %s" session_id) in
 
   (* Open PTY *)
@@ -281,8 +277,6 @@ let create ~session_id ~creator ~agent_user ?(program="/bin/bash") ?(args=["-i"]
     | Ok pid ->
       let session = {
         session_id;
-        creator;
-        created_at = Unix.time ();
         audit;
         pty;
         agent_pid = pid;
@@ -398,7 +392,7 @@ let shutdown t =
     (* Flush audit logs *)
     Audit.flush t.audit
 
-let rec handle_client_input t ~client ~data =
+let handle_client_input t ~client ~data =
   client.last_activity <- Unix.time ();
 
   let msg = Protocol.decode_client data in

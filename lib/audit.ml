@@ -13,30 +13,19 @@ type record = {
 }
 
 type t = {
-  log_dir : string;
-  mutable current_file : string;
   mutable buffer : record list;
   buffer_lock : Lwt_mutex.t;
   flush_cond : unit Lwt_condition.t;
-  mutable running : bool;
 }
 
 let create ~log_dir =
   let () =
     try Unix.mkdir log_dir 0o755 with Unix.Unix_error _ -> ()
   in
-  (* Simplified date format to avoid strftime dependency *)
-  let time = Unix.time () in
-  let tm = Unix.localtime time in
-  let date = Printf.sprintf "%04d-%02d-%02d" 
-    (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday in
   {
-    log_dir;
-    current_file = Filename.concat log_dir ("audit-" ^ date ^ ".logl");
     buffer = [];
     buffer_lock = Lwt_mutex.create ();
     flush_cond = Lwt_condition.create ();
-    running = true;
   }
 
 let record_to_json r : Yojson.Safe.t =
@@ -66,35 +55,26 @@ let flush_to_disk t =
     if List.length records = 0 then
       Lwt.return_unit
     else
+      let time = Unix.time () in
+      let tm = Unix.localtime time in
+      let date = Printf.sprintf "%04d-%02d-%02d"
+        (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday in
+      let log_file = Filename.concat "/var/log/aaau" ("audit-" ^ date ^ ".logl") in
       let lines =
         List.map (fun r -> Yojson.Safe.to_string (record_to_json r)) records
       in
       let content = String.concat "\n" lines ^ "\n" in
-      (* Use Lwt_io append mode to write *)
       let flags = [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_APPEND] in
-      let* fd = Lwt_unix.openfile t.current_file flags 0o644 in
+      let* fd = Lwt_unix.openfile log_file flags 0o644 in
       let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
       let* () = Lwt_io.write oc content in
       Lwt_io.close oc
   in
   Lwt.return_unit
 
-let rec flush_loop t =
-  if not t.running then
-    Lwt.return_unit
-  else
-    let* () = Lwt.pick [
-      Lwt_condition.wait t.flush_cond;
-      Lwt_unix.sleep 5.0;
-    ] in
-    let* () = flush_to_disk t in
-    flush_loop t
-
 let flush t =
   Lwt_condition.signal t.flush_cond ();
   flush_to_disk t
 
 let close t =
-  t.running <- false;
-  Lwt_condition.signal t.flush_cond ();
   flush_to_disk t

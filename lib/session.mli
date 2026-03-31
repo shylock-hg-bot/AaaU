@@ -14,8 +14,8 @@ val create :
   session_id:string ->
   creator:string ->
   agent_user:string ->
-  ?program:string ->
-  ?args:string list ->
+  program:string ->
+  args:string list ->
   rows:int ->
   cols:int ->
   audit:Audit.t ->

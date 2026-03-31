@@ -6,7 +6,6 @@ type t = {
   socket_path : string;
   shared_group : string;
   agent_user : string;
-  log_dir : string;
   default_program : string;
   default_args : string list;
 
@@ -23,7 +22,6 @@ let create ~socket_path ~shared_group ~agent_user ~log_dir ?(default_program="/b
     socket_path;
     shared_group;
     agent_user;
-    log_dir;
     default_program;
     default_args;
     server_socket = None;
@@ -56,7 +54,7 @@ let setup_socket t =
 
   Logs_lwt.info (fun m -> m "Server listening on %s" t.socket_path)
 
-let authenticate_client t fd =
+let authenticate_client _ _ =
   (* Socket permissions (0660, root:agent) already enforce that only users
      in the 'agent' group can connect. If we get here, user is authorized. *)
   let user_info = {
@@ -161,11 +159,12 @@ let handle_client t client_fd addr =
         | Error e ->
           let* _ = Lwt_unix.write_string client_fd (e ^ "\n") 0 (String.length e + 1) in
           Lwt_unix.close client_fd
-        | Ok (`Existing session | `New session as handshake_result') ->
+        | Ok (`Existing _ | `New _ as handshake_result') ->
           let session =
             match handshake_result' with
             | `Existing s -> s
             | `New s -> s
+            | _ -> failwith "impossible"
           in
 
           (* Add client *)
