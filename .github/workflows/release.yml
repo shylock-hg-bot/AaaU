@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     strategy:
       matrix:
         os:
@@ -52,11 +52,30 @@ jobs:
             tar -czvf ${{ matrix.artifact_name }}.tar.gz aaau-server aaau
           fi
 
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: release/${{ matrix.artifact_name }}.tar.gz
+          tag: ${{ github.ref_name }}
+          artifacts: release/*/*.tar.gz
           allowUpdates: true
+          omitDraftDuringUpdate: true
           omitBodyDuringUpdate: true
+          updateOnlyUnreleased: true
           generateReleaseNotes: true
           token: ${{ secrets.GITHUB_TOKEN }}
