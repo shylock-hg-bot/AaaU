@@ -35,8 +35,8 @@ sudo aaau-server run
 ### 4. Connect and Run Agent
 
 ```bash
-# Connect client and run kimi-cli in agent user environment
-aaau -p kimi-cli
+# Connect client and run claude in agent user environment
+aaau -p 'claude --dangerously-skip-permissions'
 ```
 
 ## Overview
