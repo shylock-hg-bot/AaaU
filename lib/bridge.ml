@@ -57,6 +57,40 @@ let setup_socket t =
 let authenticate_client t client_fd =
   Lwt.return (Auth.authenticate_socket (Lwt_unix.unix_file_descr client_fd) ~shared_group:t.shared_group)
 
+let parse_new_json payload =
+  match Yojson.Safe.from_string payload with
+  | `Assoc fields ->
+    let find_string key =
+      match List.assoc_opt key fields with
+      | Some (`String value) -> Ok value
+      | _ -> Error (Printf.sprintf "Missing or invalid JSON field: %s" key)
+    in
+    let find_int key =
+      match List.assoc_opt key fields with
+      | Some (`Int value) -> Ok value
+      | _ -> Error (Printf.sprintf "Missing or invalid JSON field: %s" key)
+    in
+    let find_args () =
+      match List.assoc_opt "args" fields with
+      | Some (`List values) ->
+        let rec collect acc = function
+          | [] -> Ok (List.rev acc)
+          | (`String value) :: rest -> collect (value :: acc) rest
+          | _ -> Error "Missing or invalid JSON field: args"
+        in
+        collect [] values
+      | _ -> Error "Missing or invalid JSON field: args"
+    in
+    begin
+      match find_string "program", find_args (), find_int "rows", find_int "cols" with
+      | Ok program, Ok args, Ok rows, Ok cols -> Ok (program, args, rows, cols)
+      | Error e, _, _, _
+      | _, Error e, _, _
+      | _, _, Error e, _
+      | _, _, _, Error e -> Error e
+    end
+  | _ -> Error "NEW_JSON payload must be a JSON object"
+
 let handle_handshake t client_fd user_info =
   (* Read handshake message *)
   let buf = Bytes.create 1024 in
@@ -78,6 +112,27 @@ let handle_handshake t client_fd user_info =
           let* _ = Lwt_unix.write_string client_fd response 0 (String.length response) in
           Lwt.return_ok (`Existing session)
       )
+    else if String.starts_with ~prefix:"NEW_JSON:" msg then
+      let payload = String.sub msg 9 (String.length msg - 9) in
+      begin match parse_new_json payload with
+      | Error e -> Lwt.return_error e
+      | Ok (program, args, rows, cols) ->
+        let session_id = Uuidm.v4_gen (Random.State.make_self_init ()) () |> Uuidm.to_string in
+        let* result = Session.create ~session_id ~creator:user_info.Auth.username ~agent_user:t.agent_user
+          ~program ~args ~rows ~cols ~audit:t.audit in
+        match result with
+        | Error e -> Lwt.return_error e
+        | Ok session ->
+          let* () =
+            Lwt_mutex.with_lock t.sessions_lock (fun () ->
+              Hashtbl.add t.sessions session_id session;
+              Lwt.return_unit
+            )
+          in
+          let response = Printf.sprintf "SESSION:%s\n" session_id in
+          let* _ = Lwt_unix.write_string client_fd response 0 (String.length response) in
+          Lwt.return_ok (`New session)
+      end
     else if String.starts_with ~prefix:"NEW" msg then
       (* Parse "NEW:rows:cols" or "NEW:program:rows:cols" or "NEW:program:arg1:arg2:...:rows:cols" *)
       (* Last two fields are always rows and cols *)

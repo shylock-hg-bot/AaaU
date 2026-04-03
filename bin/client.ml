@@ -33,6 +33,20 @@ let get_terminal_size () =
 let socket_ref = ref None
 
 let rec run_client_lwt socket_path session_id readonly program =
+  Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
+  let program_spec =
+    match program with
+    | None -> Ok None
+    | Some raw ->
+      match AaaU.Command_line.split_command raw with
+      | Ok (prog, args) -> Ok (Some (prog, args))
+      | Error e -> Error e
+  in
+  match program_spec with
+  | Error e ->
+    Printf.eprintf "Invalid program string: %s\n%!" e;
+    Lwt.return_unit
+  | Ok program_spec ->
   (* Connect to server *)
   let socket = Lwt_unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   let* () = Lwt_unix.connect socket (Unix.ADDR_UNIX socket_path) in
@@ -47,9 +61,19 @@ let rec run_client_lwt socket_path session_id readonly program =
   let handshake =
     match session_id with
     | Some id -> "SESSION:" ^ id
-    | None -> 
-      match program with
-      | Some prog -> Printf.sprintf "NEW:%s:%d:%d" prog rows cols
+    | None ->
+      match program_spec with
+      | Some (prog, args) ->
+        let payload =
+          `Assoc [
+            ("program", `String prog);
+            ("args", `List (List.map (fun arg -> `String arg) args));
+            ("rows", `Int rows);
+            ("cols", `Int cols);
+          ]
+          |> Yojson.Safe.to_string
+        in
+        "NEW_JSON:" ^ payload
       | None -> Printf.sprintf "NEW:%d:%d" rows cols
   in
   let handshake_nl = handshake ^ "\n" in

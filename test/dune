@@ -112,3 +112,8 @@
  (name test_fork_agent_argument_injection)
  (modules test_fork_agent_argument_injection)
  (libraries AaaU))
+
+(test
+ (name test_command_line_split)
+ (modules test_command_line_split)
+ (libraries AaaU))
